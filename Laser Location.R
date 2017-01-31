@@ -16,7 +16,12 @@ library(dismo) # for plotting and mapping
 library(scales) # for `alpha()` function
 library(gridExtra) # for combining plots
 library(grid) # for combining plots
+library(deldir) # for Delaunay Triangulations
+library(purrr) # for funcational programming
+library(tidyverse) # for data munging
 
+# Can skip this bit as we already have locations. 
+# If new locations then need to update
 #### Load data------------------------------------------------------------------
 data <- read.csv("Shop_Locations.csv")
 
@@ -35,6 +40,10 @@ data1 <- cbind(data, locs)
 #  remove the "," cell as it is blank and just points to the middle of Australia
 # Write file to folder
 write.csv(data1, "Locations.csv", row.names = FALSE)
+
+################################################################################
+
+#### Start Here-----------------------------------------------------------------
 
 # Load Locations data
 locations <- read.csv("Locations.csv")
@@ -196,7 +205,7 @@ grid_arrange_shared_legend(s_plot, m_plot, b_plot, a_plot, p_plot, ncol = 3,
 #             nrow=2, top=textGrob("Title", gp=gpar(fontsize=15)))
 
 
-#### Deawing Cricles------------------------------------------------------------
+#### Drawing Cricles------------------------------------------------------------
 # http://gis.stackexchange.com/questions/119736/ggmap-create-circle-symbol-where-radius-represents-distance-miles-or-km
 
 # Get map of sydney
@@ -220,3 +229,93 @@ d_mrc_bff <- gBuffer(d_mrc, width = 5000)
 plot(syd)
 plot(d_mrc_bff, col =  alpha("blue", .35), add = TRUE)
 points(d_mrc, cex = 2, pch = 20)
+
+#### Delaunay Triangulations----------------------------------------------------
+# https://datascienceplus.com/metro-systems-over-time-part-2/
+
+# Clear plotting environment
+dev.off()
+
+## Triangulations Based on state
+locations_deldir <- locations %>%
+      filter(State != "NT" & State != "ACT") %>% # remove NT and ACT as they dont have enough points
+      nest(-State, .key = location_info) %>%
+      mutate(deldir = map(location_info, function(df) deldir(df$lon, df$lat))) %>%
+      mutate(del.area = map(deldir, "del.area")) %>%
+      mutate(delsgs = map(deldir, "delsgs")) %>%
+      mutate(summary = map(deldir, "summary"))
+locations_deldir
+
+# Get delsgs data to draw the lines connecting the stores
+data_deldir_delsgs <- locations_deldir %>%
+      select(State, delsgs) %>%
+      unnest()
+head(data_deldir_delsgs)
+
+# Get Centres
+data_deldir_cent = locations_deldir %>%
+      select(State, summary) %>%
+      unnest() %>%
+      group_by(State) %>%
+      summarise(cent_x = sum(x * del.wts),
+                cent_y = sum(y * del.wts)) %>%
+      ungroup()
+data_deldir_cent
+
+
+# Plotting convinence function
+del_plot = function(state_name, city_map){
+      ggmap(city_map, extent = "device") +
+            geom_segment(data = subset(data_deldir_delsgs, State == state_name), aes(x = x1, y = y1, xend = x2, yend = y2),
+                         size = 1, color= "#ca0020") +
+            geom_point(data = subset(locations, State == state_name), aes(x = lon, y = lat),
+                       color = "#0571b0", size = 3)
+}
+
+# Plot
+del_plot("NSW", syd_map)
+del_plot("VIC", mel_map)
+del_plot("QLD", bri_map)
+
+#### Voronoi Diagrams-----------------------------------------------------------
+# http://letstalkdata.com/2014/05/creating-voronoi-diagrams-with-ggplot/
+
+## Triangulations Based on state
+locations_deldir <- locations %>%
+      filter(State != "NT" & State != "ACT") %>% # remove NT and ACT as they dont have enough points
+      nest(-State, .key = location_info) %>%
+      mutate(deldir = map(location_info, function(df) deldir(df$lon, df$lat))) %>%
+      mutate(del.area = map(deldir, "del.area")) %>%
+      mutate(dirsgs = map(deldir, "dirsgs")) %>%
+      mutate(summary = map(deldir, "summary"))
+locations_deldir
+
+# Get dirsgs data to draw the boundary lines
+data_deldir_dirsgs <- locations_deldir %>%
+      select(State, dirsgs) %>%
+      unnest()
+head(data_deldir_dirsgs)
+
+# Get Centres
+data_deldir_cent = locations_deldir %>%
+      select(State, summary) %>%
+      unnest() %>%
+      group_by(State) %>%
+      summarise(cent_x = sum(x * del.wts),
+                cent_y = sum(y * del.wts)) %>%
+      ungroup()
+data_deldir_cent
+
+# Plotting convinence function
+del_plot = function(state_name, city_map){
+      ggmap(city_map, extent = "device") +
+            geom_segment(data = subset(data_deldir_dirsgs, State == state_name), aes(x = x1, y = y1, xend = x2, yend = y2),
+                         size = 1, color= "#ca0020") +
+            geom_point(data = subset(locations, State == state_name), aes(x = lon, y = lat),
+                       color = "#0571b0", size = 3)
+}
+
+# Plot
+del_plot("NSW", syd_map)
+del_plot("VIC", mel_map)
+del_plot("QLD", bri_map)
