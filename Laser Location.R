@@ -204,6 +204,36 @@ grid_arrange_shared_legend(s_plot, m_plot, b_plot, a_plot, p_plot, ncol = 3,
 #grid.arrange(s_plot, m_plot, b_plot, a_plot, p_plot,ncol=3, 
 #             nrow=2, top=textGrob("Title", gp=gpar(fontsize=15)))
 
+#### Contours------------------------------------------------------------------- 
+# https://www.r-bloggers.com/contour-and-density-layers-with-ggmap/
+# ggmap : Spatial Visualization with ggplot2 (pdf)
+ 
+ggmap(syd_map, extent = 'device', maprange=FALSE) +
+      geom_density2d(data = locations, aes(x = lon, y = lat)) +
+      stat_density2d(data = locations, aes(x = lon, y = lat,  
+                                   fill = ..level.., alpha = ..level..),
+                                   size = 0.1, bins = 10, geom = 'polygon') +
+      scale_fill_gradient(low = "green", high = "red") +
+      scale_alpha(range = c(0.00, 0.25), guide = FALSE) +
+      coord_map(projection="mercator", 
+                xlim=c(attr(syd_map, "bb")$ll.lon, attr(syd_map, "bb")$ur.lon),
+                ylim=c(attr(syd_map, "bb")$ll.lat, attr(syd_map, "bb")$ur.lat)) +
+      theme(axis.title = element_blank(), 
+            text = element_text(size = 12))
+
+ggmap(mel_map, extent = 'device', maprange=FALSE) +
+      geom_density2d(data = locations, aes(x = lon, y = lat)) +
+      stat_density2d(data = locations, aes(x = lon, y = lat,  
+                                           fill = ..level.., alpha = ..level..),
+                     size = 0.1, bins = 10, geom = 'polygon') +
+      scale_fill_gradient(low = "green", high = "red") +
+      scale_alpha(range = c(0.00, 0.25), guide = FALSE) +
+      coord_map(projection="mercator", 
+                xlim=c(attr(mel_map, "bb")$ll.lon, attr(mel_map, "bb")$ur.lon),
+                ylim=c(attr(mel_map, "bb")$ll.lat, attr(mel_map, "bb")$ur.lat)) +
+      theme(legend.position = "none", axis.title = element_blank(), 
+            text = element_text(size = 12))
+
 
 #### Drawing Cricles------------------------------------------------------------
 # http://gis.stackexchange.com/questions/119736/ggmap-create-circle-symbol-where-radius-represents-distance-miles-or-km
